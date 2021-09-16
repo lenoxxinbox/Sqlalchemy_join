@@ -78,15 +78,14 @@ print(not_collection)  # наименование треков, которые �
 con = engine.connect()
 
 small_musician_track = con.execute("""
-    SELECT alias, duration FROM (
-        SELECT m.alias, MIN(t.duration) AS duration FROM track t 
-        LEFT JOIN track_collection tc ON tc.track_id = t.id
-        JOIN album a ON a.id = t.album_id 
-        JOIN musician_album ma ON ma.album_id = a.id 
-        JOIN musician m ON m.id = ma.musician_id 
-        GROUP BY m.alias 
-        ORDER BY MIN(t.duration)) AS foo
-    LIMIT 1;
+    SELECT m.alias, t.duration FROM track t 
+    LEFT JOIN track_collection tc ON tc.track_id = t.id
+    JOIN album a ON a.id = t.album_id 
+    JOIN musician_album ma ON ma.album_id = a.id 
+    JOIN musician m ON m.id = ma.musician_id 
+    WHERE t.duration = (
+        SELECT min(duration) FROM track
+    );
 """).fetchall()
 
 print(small_musician_track)  # исполнителя(-ей), написавшего самый короткий по продолжительности трек
@@ -95,13 +94,17 @@ print(small_musician_track)  # исполнителя(-ей), написавше
 con = engine.connect()
 
 album_little = con.execute("""
-    SELECT * FROM (
-        SELECT COUNT(t."name") AS quant, a.title AS title 
+    SELECT count(t."name"), a.title FROM album a 
+    JOIN track t ON t.album_id = a.id 
+    GROUP BY a.title
+    HAVING COUNT(title) = (
+        SELECT COUNT(t."name") 
         FROM album a 
         JOIN track t ON t.album_id = a.id 
-        GROUP BY a.title) AS f
-    WHERE quant = 1;  
+        GROUP BY a.title
+        ORDER BY COUNT(t."name")
+        LIMIT 1
+    );  
 """).fetchall()
 
 print(album_little)  # название альбомов, содержащих наименьшее количество треков 
-# не понимаю, как вызвать функцию MIN, дело в том что у меня одинаковое количество песен в минимальных альбомах
